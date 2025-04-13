@@ -10,7 +10,8 @@ import java.util.Map;
 public class Main {
     // Port number server listens to
     private static final int PORT = 4221;
-    private static String fileDirectory;
+    // Default directory to the current working directory
+    private static String fileDirectory = System.getProperty("user.dir");
 
     // Main method
     public static void main(String[] args) {
@@ -18,17 +19,20 @@ public class Main {
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--directory") && i + 1 < args.length) {
                 fileDirectory = args[i + 1];
-                System.out.println("File directory set to: " + fileDirectory);
                 break;
             }
         }
 
-        // Validate directory argument
-        // directory argument not provided -> exit
-        if (fileDirectory == null) {
-            System.err.println("Error: --directory argument not provided.");
-            System.exit(1);
+        // Ensure directory exists
+        Path dirPath = Paths.get(fileDirectory);
+        if (!Files.exists(dirPath)) {
+            System.err.println("Specified directory does not exist: " + fileDirectory);
+            System.err.println("Using current working directory instead.");
+            fileDirectory = System.getProperty("user.dir");
         }
+
+        // Log the directory being used
+        System.out.println("File directory set to: " + fileDirectory);
 
         try {
             // Create ServerSocket to listen on specified port
@@ -47,6 +51,7 @@ public class Main {
             }
         } catch (IOException e) {
             System.err.println("Could not start server: " + e.getMessage());
+            System.exit(1);
         }
     }
 
