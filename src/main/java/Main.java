@@ -31,6 +31,19 @@ public class Main {
                     String requestLine = in.readLine();
                     System.out.println("Request line: " + requestLine);
 
+                    //parse headers
+                    Map<String, String> headers = new HashMap<>();
+                    String headerLine;
+                    while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
+                        int colonIndex = headerLine.indexOf(':');
+                        if (colonIndex > 0) {
+                            String headerName = headerLine.substring(0, colonIndex).trim();
+                            String headerValue = headerLine.substring(colonIndex + 1).trim();
+                            //store header name (as lowercase)
+                            headers.put(headerName.toLowerCase(), headerValue);
+                        }
+                    }
+
                     //get OutputStream to send data back to client
                     OutputStream out = clientSocket.getOutputStream();
 
@@ -60,6 +73,29 @@ public class Main {
                                         echoString;
 
                         out.write(response.getBytes());
+                    } else if (path.equals("/user-agent")) {
+                        //get User-Agent header value
+                        String userAgent = headers.get("user-agent");
+                        System.out.println("User-Agent: " + userAgent);
+
+                        if (userAgent != null) {
+                            //calculate content length (in bytes)
+                            int contentLength = userAgent.getBytes().length;
+
+                            //form response with headers and body
+                            String response =
+                                    "HTTP/1.1 200 OK\r\n" +
+                                     "Content-Type: text/plain\r\n" +
+                                     "Content-Length: " + contentLength + "\r\n" +
+                                     "\r\n" +
+                                     userAgent;
+
+                            out.write(response.getBytes());
+                        } else {
+                            //User-Agent missing -> respond with 400 Bad Request
+                            String response = "HTTP/1.1 400 Bad Request\r\n\r\n";
+                            out.write(response.getBytes());
+                        }
                     } else {
                         //any other path -> respond with 404 Not Found
                         String response = "HTTP/1.1 404 Not Found\r\n\r\n";
