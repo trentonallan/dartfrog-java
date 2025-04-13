@@ -112,51 +112,49 @@ Creates or overwrites a file with the specified name, using the request body as 
 
 ### HTTP Protocol Implementation
 
-Dartfrog implements core HTTP/1.1 features such as:
+Dartfrog implements core HTTP/1.1 features as defined in [RFC 7230](https://tools.ietf.org/html/rfc7230):
 
-- Request parsing and validation
-- Response construction
-- Header processing
-- Content-Length handling
-- Connection persistence
+- Robust request parsing of the request line and headers.
+- Structured `HttpRequest` and `HttpResponse` objects for managing request and response data.
+- Proper construction of response status lines and headers.
+- Handling of `Content-Length` for request and response bodies.
+- Support for persistent connections (`Connection: keep-alive` and `Connection: close`).
 
 ### Thread Management
 
-The server employs a thread-per-connection model where:
+The server utilizes a thread pool for efficient handling of concurrent connections:
 
-- Each TCP connection gets a dedicated Java thread
-- Connection state is maintained for the life of the connection
-- Thread-local storage prevents cross-connection contamination
-- Socket timeouts prevent resource leaks from abandoned connections
+- A fixed-size thread pool (`THREAD_POOL_SIZE` equal to the number of available processors) manages worker threads.
+- Incoming client connections are submitted to the thread pool for asynchronous processing.
+- This model improves performance by reusing threads and reducing the overhead of creating new threads for each connection.
 
 ### Compression
 
-The gzip compression implementation:
+Dartfrog implements gzip compression with content negotiation:
 
-- Uses Java's built-in GZIPOutputStream
-- Only activates when clients support it (via Accept-Encoding header)
-- Includes proper Content-Encoding headers
-- Updates Content-Length to reflect compressed size
-- Has fallback mechanisms if compression fails
+- Uses Java's `GZIPOutputStream` for compressing response bodies.
+- Compression is only applied if the client explicitly indicates support for `gzip` in the `Accept-Encoding` request header.
+- The `Content-Encoding: gzip` header is included in compressed responses.
 
 ### File Handling
 
-File operations are implemented using Java NIO for better performance:
+File operations are implemented using Java NIO for efficiency:
 
-- Non-blocking I/O where appropriate
-- Memory-mapped files for large file transfers
-- Proper exception handling for missing files and permission issues
-- Support for binary files with correct Content-Type headers
+- `Files.readAllBytes` is used for reading file content for GET requests.
+- `Files.probeContentType` attempts to automatically determine the correct `Content-Type` for served files.
+- `Files.write` with `StandardOpenOption.CREATE` and `StandardOpenOption.TRUNCATE_EXISTING` is used for creating or overwriting files in POST requests.
+- Parent directories are automatically created if they don't exist during POST requests.
 
 ## 🔮 Future Updates
 
-Future versions of Dartfrog may include:
+Future versions of Dartfrog may explore:
 
-- **HTTP/2 Support**: Multiplexing, server push, and header compression
-- **WebSocket Protocol**: Enable real-time bidirectional communication
-- **Thread Pooling**: Replace thread-per-connection with NIO and worker pools
-- **Admin Dashboard**: Runtime metrics and configuration
+- **HTTP/2 Support**: Implementing multiplexing, server push, and header compression for improved performance.
+- **WebSocket Protocol**: Enabling real-time bidirectional communication capabilities.
+- **Enhanced Thread Management**: Further optimization of thread pool management and potential exploration of non-blocking I/O (NIO) for even greater scalability.
+- **More Robust File Handling**: Support for range requests for large files and more sophisticated content type detection.
+- **Admin Dashboard**: Providing runtime metrics and configuration options.
 
 
 
-Thank you for reading! Feel free to reach out at allan.tr@northeastern.edu.
+Thanks for reading! Feel free to reach out at allan.tr@northeastern.edu.
