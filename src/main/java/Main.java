@@ -16,26 +16,28 @@ public class HttpServer {
 
             //main server loop
             while (true) {
-                //wait for a client to connect
-                Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected: " + clientSocket.getInetAddress());
+                try {
+                    //wait for a client to connect
+                    Socket clientSocket = serverSocket.accept();
+                    System.out.println("Client connected: " + clientSocket.getInetAddress());
 
-                //get OutputStream to send data back to client
-                OutputStream out = clientSocket.getOutputStream();
+                    //get OutputStream to send data back to client
+                    OutputStream out = clientSocket.getOutputStream();
 
-                //send HTTP 200 OK response
-                String response = "HTTP/1.1 200 OK\r\n\r\n";
-                out.write(response.getBytes());
+                    //send HTTP 200 OK response
+                    String response = "HTTP/1.1 200 OK\r\n\r\n";
+                    out.write(response.getBytes());
 
-                //close resources
-                out.flush();
-                clientSocket.close();
+                    //close resources
+                    out.flush();
+                    clientSocket.close();
 
-            } catch (IOException e) {
-                System.err.println("Error handling client connection: " + e.getMessage());
+                } catch (IOException e) {
+                    System.err.println("Error handling client connection: " + e.getMessage());
+                }
             }
+        } catch (IOException e) {
+            System.err.println("Could not start server: " + e.getMessage());
         }
-    } catch (IOException e) {
-        System.err.println("Could not start server: " + e.getMessage());
     }
 }
