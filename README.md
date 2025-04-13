@@ -112,7 +112,7 @@ Creates or overwrites a file with the specified name, using the request body as 
 
 ### HTTP Protocol Implementation
 
-Dartfrog implements core HTTP/1.1 features as defined in [RFC 7230](https://tools.ietf.org/html/rfc7230):
+Dartfrog implements core HTTP/1.1 features such as:
 
 - Robust request parsing of the request line and headers.
 - Structured `HttpRequest` and `HttpResponse` objects for managing request and response data.
@@ -147,7 +147,7 @@ File operations are implemented using Java NIO for efficiency:
 
 ## 🔮 Future Updates
 
-Future versions of Dartfrog may explore:
+This HTTP/1.1 server implementation is an educational project demonstrating fundamental networking concepts and HTTP request/response handling. It currently has several limitations compared to production-ready web servers. Future versions of Dartfrog may explore:
 
 - **HTTP/2 Support**: Implementing multiplexing, server push, and header compression for improved performance.
 - **WebSocket Protocol**: Enabling real-time bidirectional communication capabilities.
