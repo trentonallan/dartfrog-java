@@ -6,6 +6,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Main {
     // Port number server listens to
@@ -91,9 +94,14 @@ public class Main {
             // Check for gzip support
             boolean clientSupportsGzip = false;
             String acceptEncoding = headers.get("accept-encoding");
-            if (acceptEncoding != null && acceptEncoding.contains("gzip")) {
-                clientSupportsGzip = true;
-                System.out.println("Client supports gzip compression");
+            if (acceptEncoding != null) {
+                // Split Accept-Encoding header by commas
+                List<String> encodings = Arrays.stream(acceptEncoding.split(",")).map(String::trim).collect(Collectors.toList());
+
+                // Check if gzip is in encodings list
+                clientSupportsGzip = encodings.contains("gzip");
+                System.out.println("Supported encodings: " + encodings);
+                System.out.println("Client supports gzip:" + clientSupportsGzip);
             }
 
             // Handle different paths
