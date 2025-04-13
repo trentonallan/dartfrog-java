@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
 
 public class Main {
     // Port number server listens to
@@ -58,6 +59,15 @@ public class Main {
         }
     }
 
+    // Compress data using GZIP
+    private static byte[] compressData(byte[] data) throws IOException {
+        ByteArrayOutputStream byteStream = new ByteArrayOutputStream(data.length);
+        try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteStream)) {
+            gzipOutputStream.write(data);
+        }
+        return byteStream.toByteArray();
+    }
+
     // Handle a client connection in separate thread
     private static void handleClient(Socket clientSocket) {
         try {
@@ -95,13 +105,15 @@ public class Main {
             boolean clientSupportsGzip = false;
             String acceptEncoding = headers.get("accept-encoding");
             if (acceptEncoding != null) {
-                // Split Accept-Encoding header by commas
-                List<String> encodings = Arrays.stream(acceptEncoding.split(",")).map(String::trim).collect(Collectors.toList());
+                // Split the Accept-Encoding header by commas and trim each value
+                List<String> encodings = Arrays.stream(acceptEncoding.split(","))
+                        .map(String::trim)
+                        .collect(Collectors.toList());
 
-                // Check if gzip is in encodings list
+                // Check if gzip is in the list of supported encodings
                 clientSupportsGzip = encodings.contains("gzip");
                 System.out.println("Supported encodings: " + encodings);
-                System.out.println("Client supports gzip:" + clientSupportsGzip);
+                System.out.println("Client supports gzip: " + clientSupportsGzip);
             }
 
             // Handle different paths
@@ -114,50 +126,84 @@ public class Main {
                 String echoString = path.substring("/echo/".length());
                 System.out.println("Echo string: " + echoString);
 
-                // Calculate content length (in bytes)
-                int contentLength = echoString.getBytes().length;
+                byte[] responseBody = echoString.getBytes();
+                byte[] compressedResponseBody = null;
 
-                // Form response with headers and body
+                if (clientSupportsGzip) {
+                    try {
+                        // Compress the response body
+                        compressedResponseBody = compressData(responseBody);
+                        System.out.println("Original body size: " + responseBody.length + " bytes");
+                        System.out.println("Compressed body size: " + compressedResponseBody.length + " bytes");
+                    } catch (IOException e) {
+                        System.err.println("Compression error: " + e.getMessage());
+                        // Fall back to uncompressed if compression fails
+                        clientSupportsGzip = false;
+                    }
+                }
+
+                // Use the compressed or original body based on gzip support
+                byte[] finalResponseBody = clientSupportsGzip ? compressedResponseBody : responseBody;
+                int contentLength = finalResponseBody.length;
+
+                // Form response with headers
                 StringBuilder responseBuilder = new StringBuilder();
                 responseBuilder.append("HTTP/1.1 200 OK\r\n");
                 responseBuilder.append("Content-Type: text/plain\r\n");
 
-                // Add Content-Encoding header if client supports gzip
+                // Add Content-Encoding header if using gzip
                 if (clientSupportsGzip) {
                     responseBuilder.append("Content-Encoding: gzip\r\n");
-                    // Note: For this stage, we're not actually compressing the content yet
                 }
 
                 responseBuilder.append("Content-Length: " + contentLength + "\r\n");
                 responseBuilder.append("\r\n");
-                responseBuilder.append(echoString);
 
+                // Send headers
                 out.write(responseBuilder.toString().getBytes());
+                // Send body (compressed or not)
+                out.write(finalResponseBody);
             } else if (path.equals("/user-agent")) {
                 // Get User-Agent header value
                 String userAgent = headers.get("user-agent");
                 System.out.println("User-Agent: " + userAgent);
 
                 if (userAgent != null) {
-                    // Calculate content length (in bytes)
-                    int contentLength = userAgent.getBytes().length;
+                    byte[] responseBody = userAgent.getBytes();
+                    byte[] compressedResponseBody = null;
 
-                    // Form response with headers and body
+                    if (clientSupportsGzip) {
+                        try {
+                            // Compress the response body
+                            compressedResponseBody = compressData(responseBody);
+                        } catch (IOException e) {
+                            System.err.println("Compression error: " + e.getMessage());
+                            // Fall back to uncompressed if compression fails
+                            clientSupportsGzip = false;
+                        }
+                    }
+
+                    // Use the compressed or original body based on gzip support
+                    byte[] finalResponseBody = clientSupportsGzip ? compressedResponseBody : responseBody;
+                    int contentLength = finalResponseBody.length;
+
+                    // Form response with headers
                     StringBuilder responseBuilder = new StringBuilder();
                     responseBuilder.append("HTTP/1.1 200 OK\r\n");
                     responseBuilder.append("Content-Type: text/plain\r\n");
 
-                    // Add Content-Encoding header if client supports gzip
+                    // Add Content-Encoding header if using gzip
                     if (clientSupportsGzip) {
                         responseBuilder.append("Content-Encoding: gzip\r\n");
-                        // Note: For this stage, we're not actually compressing the content yet
                     }
 
                     responseBuilder.append("Content-Length: " + contentLength + "\r\n");
                     responseBuilder.append("\r\n");
-                    responseBuilder.append(userAgent);
 
+                    // Send headers
                     out.write(responseBuilder.toString().getBytes());
+                    // Send body (compressed or not)
+                    out.write(finalResponseBody);
                 } else {
                     // User-Agent missing -> respond with 400 Bad Request
                     String response = "HTTP/1.1 400 Bad Request\r\n\r\n";
@@ -175,22 +221,40 @@ public class Main {
                     if (file.exists() && file.isFile()) {
                         try {
                             byte[] fileContent = Files.readAllBytes(filePath);
+                            byte[] compressedFileContent = null;
 
+                            if (clientSupportsGzip) {
+                                try {
+                                    // Compress the file content
+                                    compressedFileContent = compressData(fileContent);
+                                } catch (IOException e) {
+                                    System.err.println("Compression error: " + e.getMessage());
+                                    // Fall back to uncompressed if compression fails
+                                    clientSupportsGzip = false;
+                                }
+                            }
+
+                            // Use the compressed or original content based on gzip support
+                            byte[] finalContent = clientSupportsGzip ? compressedFileContent : fileContent;
+                            int contentLength = finalContent.length;
+
+                            // Form response with headers
                             StringBuilder responseBuilder = new StringBuilder();
                             responseBuilder.append("HTTP/1.1 200 OK\r\n");
                             responseBuilder.append("Content-Type: application/octet-stream\r\n");
 
-                            // Add Content-Encoding header if client supports gzip
+                            // Add Content-Encoding header if using gzip
                             if (clientSupportsGzip) {
                                 responseBuilder.append("Content-Encoding: gzip\r\n");
-                                // Note: For this stage, we're not actually compressing the content yet
                             }
 
-                            responseBuilder.append("Content-Length: " + fileContent.length + "\r\n");
+                            responseBuilder.append("Content-Length: " + contentLength + "\r\n");
                             responseBuilder.append("\r\n");
 
+                            // Send headers
                             out.write(responseBuilder.toString().getBytes());
-                            out.write(fileContent);
+                            // Send body (compressed or not)
+                            out.write(finalContent);
                         } catch (IOException e) {
                             String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
                             out.write(response.getBytes());
