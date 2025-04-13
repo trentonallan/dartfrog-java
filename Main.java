@@ -123,7 +123,7 @@ public class Main {
             // Process requests in a loop for persistent connections
             while (keepConnectionOpen) {
                 try {
-                    // Read first line of request (METHOD PATH HTTP-VERSION)
+                    // Read first line of request
                     String requestLine = in.readLine();
 
                     // If request line is null, client closed the connection
