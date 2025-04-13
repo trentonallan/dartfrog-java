@@ -1,6 +1,6 @@
-# Hyperion: A High-Performance HTTP/1.1 Server in Java
+# Dartfrog: A High-Performance HTTP/1.1 Server in Java
 
-Hyperion is a lightweight, multi-threaded HTTP/1.1 server implementation written in pure Java with no external dependencies. It features support for persistent connections, content compression, concurrent request handling, and a flexible file-serving system.
+Dartfrog is a lightweight, multi-threaded HTTP/1.1 server implementation written in pure Java with no external dependencies. It features support for persistent connections, content compression, concurrent request handling, and a flexible file-serving system.
 
 ## 📚 Table of Contents
 
@@ -12,6 +12,8 @@ Hyperion is a lightweight, multi-threaded HTTP/1.1 server implementation written
 - [Future Enhancements](#-future-enhancements)
 
 ## ⭐️ Features
+
+
 
 Hyperion implements core HTTP/1.1 functionality:
 
