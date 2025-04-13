@@ -1,6 +1,6 @@
 # Dartfrog: A High-Performance HTTP/1.1 Server in Java
 
-Dartfrog is a lightweight, multi-threaded HTTP/1.1 server implementation written in pure Java with no external dependencies. It features support for persistent connections, content compression, concurrent request handling, and a flexible file-serving system.
+Dartfrog is a robust and efficient HTTP/1.1 server implementation written in pure Java with no external dependencies. It's designed for performance and clarity, featuring asynchronous request handling via a thread pool.
 
 ## 📚 Table of Contents
 
@@ -15,25 +15,26 @@ Dartfrog is a lightweight, multi-threaded HTTP/1.1 server implementation written
 
 Dartfrog implements core HTTP/1.1 functionality:
 
-- **Persistent Connections**: Keep TCP connections alive for multiple requests, improving performance
-- **Concurrent Request Handling**: Process multiple client connections simultaneously
-- **Content Compression**: Automatically compress responses using gzip when supported by clients
-- **File Serving**: Read and write files with proper error handling
-- **Content Negotiation**: Honor client preferences for compression via Accept-Encoding
-- **Standards Compliant**: Proper HTTP/1.1 status codes, headers, and response formats
-- **Zero Dependencies**: Written in pure Java with no external libraries
+- **Persistent Connections**: Keep TCP connections alive for multiple requests, improving performance.
+- **Asynchronous Request Handling**: Utilizes a thread pool for efficient handling of concurrent client connections.
+- **Content Compression (gzip)**: Automatically compresses responses when supported by clients, with content negotiation via `Accept-Encoding`.
+- **Versatile File Management**: Provides efficient file serving capabilities (GET) with automatic Content-Type detection and allows for file creation/modification (POST) via request bodies.
+- **Content Negotiation**: Honors client preferences for compression via the `Accept-Encoding` header.
+- **Standards Compliant**: Adheres to HTTP/1.1 standards for status codes, headers, and response formats.
+- **Robust Error Handling**: Includes comprehensive error handling and logging.
+- **Clear, Modular Design**: Promotes maintainability and extensibility through well-organized code.
 
 ## 🏗 Architecture
 
-Dartfrog uses a thread-per-connection model with the following components:
+Dartfrog uses a multi-threaded architecture with the following key components:
 
-1. **Main Server Thread**: Accepts new TCP connections and delegates them to handler threads
-2. **Connection Handlers**: Each client connection gets a dedicated thread that processes multiple requests
-3. **Request Parser**: Extracts HTTP method, headers, and body
-4. **Route Handler**: Maps URL paths to appropriate handlers
-5. **Response Formatter**: Constructs HTTP responses with proper headers and compression
+1. **Main Server Thread**: Accepts incoming TCP connections and delegates them to worker threads from the thread pool.
+2. **Worker Threads (Thread Pool)**: A pool of threads that concurrently handle multiple client requests, improving responsiveness.
+3. **Request Parser**: Parses the HTTP request line and headers into a structured `HttpRequest` object.
+4. **Route Handler**: Maps incoming request paths to specific handler logic.
+5. **Response Formatter**: Constructs `HttpResponse` objects with appropriate headers and body, including handling content compression.
 
-The server maintains connection state for persistent connections while isolating each client's data to ensure thread safety.
+The server maintains connection persistence where requested and ensures thread safety through the design of request handling.
 
 ## 🚀 Getting Started
 
