@@ -157,3 +157,5 @@ Future versions of Dartfrog may include:
 - **TLS/HTTPS Support**: Secure communication
 - **Request Routing DSL**: Simplified API for defining routes
 - **Admin Dashboard**: Runtime metrics and configuration
+
+Thanks for reading! Feel free to reach out at allan.tr@northeastern.edu.
