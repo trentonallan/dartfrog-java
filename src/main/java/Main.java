@@ -25,7 +25,7 @@ public class Main {
         }
 
         if (fileDirectory == null) {
-            System.err.println("Error: --directory argument not provided.")
+            System.err.println("Error: --directory argument not provided.");
         }
 
         try {
