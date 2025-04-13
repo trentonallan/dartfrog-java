@@ -24,9 +24,10 @@ public class Main {
         }
 
         // Validate directory argument
+        // directory argument not provided -> exit
         if (fileDirectory == null) {
             System.err.println("Error: --directory argument not provided.");
-            return;
+            System.exit(1);
         }
 
         try {
