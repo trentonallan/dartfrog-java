@@ -11,7 +11,7 @@ Hyperion is a lightweight, multi-threaded HTTP/1.1 server implementation written
 - [Implementation Details](#-implementation-details)
 - [Future Enhancements](#-future-enhancements)
 
-## ✨ Features
+## ⭐️ Features
 
 Hyperion implements core HTTP/1.1 functionality:
 
@@ -24,8 +24,6 @@ Hyperion implements core HTTP/1.1 functionality:
 - **Zero Dependencies**: Written in pure Java with no external libraries
 
 ## 🏗 Architecture
-
-![Hyperion Architecture](docs/architecture.png)
 
 Hyperion uses a thread-per-connection model with the following components:
 
