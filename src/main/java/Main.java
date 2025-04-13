@@ -3,12 +3,12 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class HttpServer {
+public class Main {
     //port number server listens to
     private static final int PORT = 4221;
 
     //main method
-    private static void main(String[] args) {
+    public static void main(String[] args) {
         try {
             //create ServerSocket to listen on specified port
             ServerSocket serverSocket = new ServerSocket(PORT);
