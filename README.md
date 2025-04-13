@@ -151,8 +151,7 @@ This HTTP/1.1 server implementation is an educational project demonstrating fund
 
 - **HTTP/2 Support**: Implementing multiplexing, server push, and header compression for improved performance.
 - **WebSocket Protocol**: Enabling real-time bidirectional communication capabilities.
-- **Enhanced Thread Management**: Further optimization of thread pool management and potential exploration of non-blocking I/O (NIO) for even greater scalability.
-- **More Robust File Handling**: Support for range requests for large files and more sophisticated content type detection.
+- **Enhanced Thread Management**: Further optimization of thread pool management and potential exploration of non-blocking I/O (NIO) for 
 - **Admin Dashboard**: Providing runtime metrics and configuration options.
 
 
