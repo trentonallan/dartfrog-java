@@ -9,7 +9,7 @@ Dartfrog is a lightweight, multi-threaded HTTP/1.1 server implementation written
 - [Getting Started](#-getting-started)
 - [API Endpoints](#-api-endpoints)
 - [Implementation Details](#-implementation-details)
-- [Future Enhancements](#-future-enhancements)
+- [Future Updates](#-future-updates)
 
 ## ⭐️ Features
 
@@ -147,7 +147,7 @@ File operations are implemented using Java NIO for better performance:
 - Proper exception handling for missing files and permission issues
 - Support for binary files with correct Content-Type headers
 
-## 🔮 Future Enhancements
+## 🔮 Future Updates
 
 Future versions of Dartfrog may include:
 
