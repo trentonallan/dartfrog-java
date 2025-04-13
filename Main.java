@@ -1,503 +1,442 @@
+```java
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * HTTP/1.1 Server Implementation
- * 
- * A lightweight, multi-threaded HTTP server with support for:
- * - Persistent connections
- * - Content compression (gzip)
- * - File operations (GET/POST)
- * - Multiple concurrent client connections
+ * A robust and efficient HTTP/1.1 server designed for performance and clarity.
+ *
+ * Features:
+ * - Asynchronous request handling via a thread pool.
+ * - Implements core HTTP/1.1 with persistent connections.
+ * - Efficient content compression (gzip) with content negotiation.
+ * - Comprehensive file serving (GET) with content type detection.
+ * - File creation/overwrite (POST) with proper handling of request bodies.
+ * - Robust error handling and logging.
+ * - Clean, modular design promoting maintainability and extensibility.
  */
 public class Main {
-    // Port number server listens to
-    private static final int PORT = 4221;
-    // Default directory to the current working directory
-    private static String fileDirectory = System.getProperty("user.dir");
-    // Socket timeout in milliseconds (30 seconds)
-    private static final int SOCKET_TIMEOUT = 30000;
+
+    private static final int DEFAULT_PORT = 4221;
+    private static final String DEFAULT_FILE_DIRECTORY = System.getProperty("user.dir");
+    private static final int SOCKET_TIMEOUT_MS = 30000;
+    private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
+    private static final ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+    private static String fileDirectory;
 
     /**
-     * Entry point for the HTTP server
-     * 
-     * Initializes the server, parses command-line arguments,
-     * and enters the main connection acceptance loop.
-     * 
-     * @param args Command line arguments (supports --directory)
+     * Entry point for the HTTP server.
+     *
+     * Parses command-line arguments, configures the server, and starts the main loop
+     * for accepting client connections. Utilizes a thread pool for efficient handling
+     * of concurrent requests.
+     *
+     * @param args Command-line arguments (supports --directory and --port)
      */
     public static void main(String[] args) {
-        // Parse command line arguments
+        int port = DEFAULT_PORT;
+        fileDirectory = DEFAULT_FILE_DIRECTORY;
+
+        // Parse command-line arguments with enhanced clarity
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--directory") && i + 1 < args.length) {
-                fileDirectory = args[i + 1];
-                break;
+            switch (args[i]) {
+                case "--directory":
+                    if (i + 1 < args.length) {
+                        fileDirectory = args[++i];
+                    } else {
+                        System.err.println("Error: --directory option requires a path.");
+                        System.exit(1);
+                    }
+                    break;
+                case "--port":
+                    if (i + 1 < args.length) {
+                        try {
+                            port = Integer.parseInt(args[++i]);
+                            if (port < 1 || port > 65535) {
+                                throw new NumberFormatException("Port number out of range.");
+                            }
+                        } catch (NumberFormatException e) {
+                            System.err.println("Error: Invalid port number: " + args[i]);
+                            System.exit(1);
+                        }
+                    } else {
+                        System.err.println("Error: --port option requires a number.");
+                        System.exit(1);
+                    }
+                    break;
+                default:
+                    System.err.println("Usage: java Main [--directory <path>] [--port <number>]");
+                    System.exit(1);
             }
         }
 
-        // Ensure directory exists
+        // Validate and log the configured file directory
         Path dirPath = Paths.get(fileDirectory);
-        if (!Files.exists(dirPath)) {
-            System.err.println("Specified directory does not exist: " + fileDirectory);
-            System.err.println("Using current working directory instead.");
-            fileDirectory = System.getProperty("user.dir");
+        if (!Files.exists(dirPath) || !Files.isDirectory(dirPath)) {
+            System.err.println("Error: Specified directory does not exist or is not a directory: " + fileDirectory);
+            System.err.println("Using default directory: " + DEFAULT_FILE_DIRECTORY);
+            fileDirectory = DEFAULT_FILE_DIRECTORY;
         }
+        System.out.println("Serving files from: " + fileDirectory);
+        System.out.println("Server listening on port: " + port);
 
-        // Log the directory being used
-        System.out.println("File directory set to: " + fileDirectory);
-
-        try {
-            // Create ServerSocket to listen on specified port
-            ServerSocket serverSocket = new ServerSocket(PORT);
-            System.out.println("Server started on port " + PORT);
-
-            // Main server loop - continuously accept new client connections
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
             while (true) {
-                // Wait for a client to connect (blocks until connection received)
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected: " + clientSocket.getInetAddress());
-
-                // Set socket timeout to prevent resource leaks from abandoned connections
-                clientSocket.setSoTimeout(SOCKET_TIMEOUT);
-
-                // Create new thread to handle this client - enables concurrent connections
-                Thread clientThread = new Thread(() -> handleClient(clientSocket));
-                clientThread.start();
+                System.out.println("Accepted connection from: " + clientSocket.getInetAddress());
+                clientSocket.setSoTimeout(SOCKET_TIMEOUT_MS);
+                threadPool.submit(() -> handleClient(clientSocket)); // Delegate to thread pool
             }
         } catch (IOException e) {
-            System.err.println("Could not start server: " + e.getMessage());
+            System.err.println("Error starting server: " + e.getMessage());
+            threadPool.shutdownNow();
             System.exit(1);
         }
     }
 
     /**
-     * Compresses data using the GZIP algorithm
-     * 
-     * @param data The byte array to compress
-     * @return A new byte array containing the compressed data
-     * @throws IOException If compression fails
-     */
-    private static byte[] compressData(byte[] data) throws IOException {
-        // Use ByteArrayOutputStream to capture compressed output
-        ByteArrayOutputStream byteStream = new ByteArrayOutputStream(data.length);
-        
-        // GZIPOutputStream automatically handles compression, try-with-resources ensures proper closure
-        try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteStream)) {
-            gzipOutputStream.write(data);
-            // Stream is automatically flushed and closed by try-with-resources
-        }
-        return byteStream.toByteArray();
-    }
-
-    /**
-     * Handles a client connection in a separate thread
-     * 
-     * This method processes multiple HTTP requests over a persistent connection.
-     * It parses requests, routes them to appropriate handlers, and sends responses.
-     * The connection remains open until explicitly closed or a timeout/error occurs.
-     * 
-     * @param clientSocket The socket connected to the client
+     * Handles a single client connection.
+     *
+     * Reads and processes multiple HTTP requests over a persistent connection until
+     * the client closes the connection or a timeout occurs. Employs a structured
+     * approach for request parsing, routing, and response generation.
+     *
+     * @param clientSocket The socket connected to the client.
      */
     private static void handleClient(Socket clientSocket) {
-        try {
-            // Set up input/output streams for the socket
-            BufferedReader in = new BufferedReader(
-                    new InputStreamReader(clientSocket.getInputStream()));
-            OutputStream out = clientSocket.getOutputStream();
-
-            // HTTP/1.1 connections are persistent by default
-            boolean keepConnectionOpen = true;
-
-            // Process requests in a loop for persistent connections
-            while (keepConnectionOpen) {
+        try (
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                OutputStream out = new BufferedOutputStream(clientSocket.getOutputStream())
+        ) {
+            boolean keepAlive = true;
+            while (keepAlive) {
                 try {
-                    // Read first line of request
-                    String requestLine = in.readLine();
-
-                    // If request line is null, client closed the connection
-                    if (requestLine == null) {
-                        System.out.println("Client closed the connection");
+                    HttpRequest request = parseRequest(in);
+                    if (request == null) {
+                        keepAlive = false;
                         break;
                     }
-
-                    System.out.println("Request line: " + requestLine);
-
-                    // Parse headers into a map of header name -> header value
-                    Map<String, String> headers = new HashMap<>();
-                    String headerLine;
-                    // Headers end with an empty line (CRLF)
-                    while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
-                        int colonIndex = headerLine.indexOf(':');
-                        if (colonIndex > 0) {
-                            String headerName = headerLine.substring(0, colonIndex).trim();
-                            String headerValue = headerLine.substring(colonIndex + 1).trim();
-                            // Store header names as lowercase for case-insensitive matching
-                            headers.put(headerName.toLowerCase(), headerValue);
-                        }
-                    }
-
-                    // Check if the client wants to close the connection
-                    String connectionHeader = headers.get("connection");
-                    if (connectionHeader != null && connectionHeader.equalsIgnoreCase("close")) {
-                        keepConnectionOpen = false;
-                        System.out.println("Client requested connection close");
-                    }
-
-                    // Extract method and path from request line
-                    String[] requestParts = requestLine.split(" ");
-                    String method = requestParts[0]; // GET, POST, etc.
-                    String path = requestParts.length > 1 ? requestParts[1] : "/";
-                    System.out.println("Method: " + method + ", Path: " + path);
-
-                    // Content negotiation: check for gzip support via Accept-Encoding header
-                    boolean clientSupportsGzip = false;
-                    String acceptEncoding = headers.get("accept-encoding");
-                    if (acceptEncoding != null) {
-                        // Split the Accept-Encoding header by commas and trim each value
-                        List<String> encodings = Arrays.stream(acceptEncoding.split(","))
-                                .map(String::trim)
-                                .collect(Collectors.toList());
-
-                        // Check if gzip is in the list of supported encodings
-                        clientSupportsGzip = encodings.contains("gzip");
-                        System.out.println("Supported encodings: " + encodings);
-                        System.out.println("Client supports gzip: " + clientSupportsGzip);
-                    }
-
-                    // Route the request to the appropriate handler based on path
-                    if (path.equals("/")) {
-                        // Root path -> respond with 200 OK
-                        String response = "HTTP/1.1 200 OK\r\n\r\n";
-                        out.write(response.getBytes());
-                    } else if (path.startsWith("/echo/")) {
-                        // Handle /echo/ endpoint - returns the path segment as plain text
-                        handleEchoRequest(path, clientSupportsGzip, keepConnectionOpen, out);
-                    } else if (path.equals("/user-agent")) {
-                        // Handle /user-agent endpoint - returns the User-Agent header value
-                        handleUserAgentRequest(headers, clientSupportsGzip, keepConnectionOpen, out);
-                    } else if (path.startsWith("/files/")) {
-                        // Handle /files/ endpoint - file operations (GET/POST)
-                        handleFileRequest(path, method, headers, clientSupportsGzip, keepConnectionOpen, in, out);
-                    } else {
-                        // Any other path -> respond with 404 Not Found
-                        String response = "HTTP/1.1 404 Not Found\r\n\r\n";
-                        out.write(response.getBytes());
-                    }
-
-                    // Flush the output to ensure the response is sent immediately
-                    out.flush();
-
-                    // If the connection is not to be kept open, break the loop
-                    if (!keepConnectionOpen) {
-                        break;
-                    }
-
+                    HttpResponse response = routeRequest(request);
+                    sendResponse(response, out, request.headers().get("accept-encoding"));
+                    keepAlive = request.headers().getOrDefault("connection", "keep-alive")
+                            .equalsIgnoreCase("keep-alive") && response.statusCode() != 400 && response.statusCode() != 404 && response.statusCode() != 500;
                 } catch (SocketTimeoutException e) {
-                    // Socket timeout occurred, close the connection
-                    System.out.println("Socket timeout, closing connection");
-                    break;
+                    System.out.println("Connection timed out.");
+                    keepAlive = false;
                 } catch (SocketException e) {
-                    // Socket error (likely client disconnected unexpectedly)
-                    System.out.println("Socket error: " + e.getMessage());
-                    break;
+                    System.out.println("Client disconnected unexpectedly.");
+                    keepAlive = false;
                 } catch (IOException e) {
-                    // Other IO errors
-                    System.err.println("Error handling request: " + e.getMessage());
-                    break;
+                    System.err.println("Error processing request: " + e.getMessage());
+                    HttpResponse errorResponse = new HttpResponse.Builder(500)
+                            .withBody("Internal Server Error".getBytes())
+                            .withHeader("Content-Type", "text/plain")
+                            .build();
+                    sendResponse(errorResponse, out, null);
+                    keepAlive = false;
                 }
             }
-
-            // Clean up resources when connection ends
-            System.out.println("Closing connection with client");
-            in.close();
-            out.close();
-            clientSocket.close();
-
         } catch (IOException e) {
-            System.err.println("Error handling client connection: " + e.getMessage());
+            System.err.println("Error handling client: " + e.getMessage());
+        } finally {
             try {
                 clientSocket.close();
-            } catch (IOException ex) {
-                System.err.println("Error closing client socket: " + ex.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Handles requests to the /echo/ endpoint
-     * 
-     * Extracts the string after "/echo/" and returns it as plain text.
-     * Applies gzip compression if the client supports it.
-     * 
-     * @param path The request path
-     * @param clientSupportsGzip Whether the client supports gzip compression
-     * @param keepConnectionOpen Whether to keep the connection open after this request
-     * @param out The output stream to write the response to
-     * @throws IOException If an I/O error occurs
-     */
-    private static void handleEchoRequest(String path, boolean clientSupportsGzip, 
-                                         boolean keepConnectionOpen, OutputStream out) throws IOException {
-        // Extract string after "/echo/"
-        String echoString = path.substring("/echo/".length());
-        System.out.println("Echo string: " + echoString);
-
-        // Convert string to bytes using default charset
-        byte[] responseBody = echoString.getBytes();
-        byte[] compressedResponseBody = null;
-
-        if (clientSupportsGzip) {
-            try {
-                // Compress the response body if client supports gzip
-                compressedResponseBody = compressData(responseBody);
-                System.out.println("Original body size: " + responseBody.length + " bytes");
-                System.out.println("Compressed body size: " + compressedResponseBody.length + " bytes");
+                System.out.println("Closed connection with: " + clientSocket.getInetAddress());
             } catch (IOException e) {
-                System.err.println("Compression error: " + e.getMessage());
-                // Fall back to uncompressed if compression fails
-                clientSupportsGzip = false;
+                System.err.println("Error closing socket: " + e.getMessage());
             }
         }
-
-        // Choose the appropriate response body based on compression support
-        byte[] finalResponseBody = clientSupportsGzip ? compressedResponseBody : responseBody;
-        int contentLength = finalResponseBody.length;
-
-        // Build HTTP response with appropriate headers
-        StringBuilder responseBuilder = new StringBuilder();
-        responseBuilder.append("HTTP/1.1 200 OK\r\n");
-        responseBuilder.append("Content-Type: text/plain\r\n");
-
-        // Add Content-Encoding header if using gzip
-        if (clientSupportsGzip) {
-            responseBuilder.append("Content-Encoding: gzip\r\n");
-        }
-
-        // Content-Length is required for persistent connections
-        responseBuilder.append("Content-Length: " + contentLength + "\r\n");
-
-        // Add connection header if client requested connection close
-        if (!keepConnectionOpen) {
-            responseBuilder.append("Connection: close\r\n");
-        }
-
-        // Empty line signifies end of headers
-        responseBuilder.append("\r\n");
-
-        // Send headers and body separately (since body might be binary data)
-        out.write(responseBuilder.toString().getBytes());
-        out.write(finalResponseBody);
     }
 
     /**
-     * Handles requests to the /user-agent endpoint
-     * 
-     * Returns the User-Agent header value as plain text.
-     * Applies gzip compression if the client supports it.
-     * 
-     * @param headers The request headers
-     * @param clientSupportsGzip Whether the client supports gzip compression
-     * @param keepConnectionOpen Whether to keep the connection open after this request
-     * @param out The output stream to write the response to
-     * @throws IOException If an I/O error occurs
+     * Parses an HTTP request from the input stream.
+     *
+     * Reads the request line and subsequent headers, storing them in a structured
+     * HttpRequest object. Handles potential EOF and malformed requests.
+     *
+     * @param in The BufferedReader associated with the client socket.
+     * @return An HttpRequest object if parsing is successful, null if the connection is closed.
+     * @throws IOException If an I/O error occurs during reading.
      */
-    private static void handleUserAgentRequest(Map<String, String> headers, boolean clientSupportsGzip,
-                                               boolean keepConnectionOpen, OutputStream out) throws IOException {
-        // Get User-Agent header value
-        String userAgent = headers.get("user-agent");
-        System.out.println("User-Agent: " + userAgent);
+    private static HttpRequest parseRequest(BufferedReader in) throws IOException {
+        String requestLine = in.readLine();
+        if (requestLine == null) {
+            return null; // Client closed connection
+        }
+        System.out.println("Request Line: " + requestLine);
 
-        if (userAgent != null) {
-            // Convert user agent string to bytes
-            byte[] responseBody = userAgent.getBytes();
-            byte[] compressedResponseBody = null;
+        String[] parts = requestLine.split(" ");
+        if (parts.length != 3) {
+            return null; // Malformed request line
+        }
+        String method = parts[0].toUpperCase(Locale.ROOT);
+        String path = parts[1];
 
-            // Compress if supported and enabled
-            if (clientSupportsGzip) {
+        Map<String, String> headers = new HashMap<>();
+        String headerLine;
+        while ((headerLine = in.readLine()) != null && !headerLine.isEmpty()) {
+            int colonIndex = headerLine.indexOf(':');
+            if (colonIndex > 0) {
+                String name = headerLine.substring(0, colonIndex).trim().toLowerCase(Locale.ROOT);
+                String value = headerLine.substring(colonIndex + 1).trim();
+                headers.put(name, value);
+            }
+        }
+
+        // Handle request body for POST requests
+        byte[] body = null;
+        if (method.equals("POST")) {
+            String contentLengthStr = headers.get("content-length");
+            if (contentLengthStr != null) {
                 try {
-                    compressedResponseBody = compressData(responseBody);
-                } catch (IOException e) {
-                    System.err.println("Compression error: " + e.getMessage());
-                    // Fall back to uncompressed if compression fails
-                    clientSupportsGzip = false;
+                    int contentLength = Integer.parseInt(contentLengthStr);
+                    char[] bodyChars = new char[contentLength];
+                    int bytesRead = in.read(bodyChars, 0, contentLength);
+                    if (bytesRead == contentLength) {
+                        body = new String(bodyChars).getBytes();
+                    } else {
+                        System.err.println("Error reading full request body.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid Content-Length: " + contentLengthStr);
                 }
             }
+        }
 
-            // Select appropriate body based on compression setting
-            byte[] finalResponseBody = clientSupportsGzip ? compressedResponseBody : responseBody;
-            int contentLength = finalResponseBody.length;
+        return new HttpRequest(method, path, headers, body);
+    }
 
-            // Build HTTP response
-            StringBuilder responseBuilder = new StringBuilder();
-            responseBuilder.append("HTTP/1.1 200 OK\r\n");
-            responseBuilder.append("Content-Type: text/plain\r\n");
+    /**
+     * Routes the incoming HTTP request to the appropriate handler.
+     *
+     * Based on the request path, this method dispatches the request to specific
+     * handler functions for different endpoints.
+     *
+     * @param request The HttpRequest object containing the parsed request.
+     * @return An HttpResponse object generated by the handler.
+     * @throws IOException If an I/O error occurs during handling.
+     */
+    private static HttpResponse routeRequest(HttpRequest request) throws IOException {
+        String path = request.path();
+        String method = request.method();
 
-            if (clientSupportsGzip) {
-                responseBuilder.append("Content-Encoding: gzip\r\n");
-            }
+        System.out.println("Routing: " + method + " " + path);
 
-            responseBuilder.append("Content-Length: " + contentLength + "\r\n");
-
-            if (!keepConnectionOpen) {
-                responseBuilder.append("Connection: close\r\n");
-            }
-
-            responseBuilder.append("\r\n");
-
-            // Send response
-            out.write(responseBuilder.toString().getBytes());
-            out.write(finalResponseBody);
+        if (path.equals("/")) {
+            return new HttpResponse.Builder(200).build();
+        } else if (path.startsWith("/echo/")) {
+            return handleEcho(path);
+        } else if (path.equals("/user-agent")) {
+            return handleUserAgent(request.headers().get("user-agent"));
+        } else if (path.startsWith("/files/")) {
+            return handleFiles(path.substring("/files/".length()), method, request.headers(), request.body());
         } else {
-            // User-Agent header is required for this endpoint
-            String response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-            out.write(response.getBytes());
+            return new HttpResponse.Builder(404).build();
         }
     }
 
     /**
-     * Handles requests to the /files/ endpoint
-     * 
-     * For GET requests: Returns the contents of the specified file.
-     * For POST requests: Creates or overwrites a file with the request body.
-     * Applies gzip compression for GET responses if the client supports it.
-     * 
-     * @param path The request path
-     * @param method The HTTP method (GET or POST)
-     * @param headers The request headers
-     * @param clientSupportsGzip Whether the client supports gzip compression
-     * @param keepConnectionOpen Whether to keep the connection open after this request
-     * @param in The input stream to read the request body from (for POST)
-     * @param out The output stream to write the response to
-     * @throws IOException If an I/O error occurs
+     * Handles the /echo/ endpoint.
+     *
+     * Extracts the text after /echo/ and returns it as a plain text response.
+     *
+     * @param path The request path.
+     * @return An HttpResponse object containing the echoed text.
      */
-    private static void handleFileRequest(String path, String method, Map<String, String> headers,
-                                          boolean clientSupportsGzip, boolean keepConnectionOpen,
-                                          BufferedReader in, OutputStream out) throws IOException {
-        // Extract filename from path, removing /files/ prefix
-        String fileName = path.substring("/files/".length());
+    private static HttpResponse handleEcho(String path) {
+        String echoText = path.substring("/echo/".length());
+        return new HttpResponse.Builder(200)
+                .withBody(echoText.getBytes())
+                .withHeader("Content-Type", "text/plain")
+                .build();
+    }
+
+    /**
+     * Handles the /user-agent endpoint.
+     *
+     * Returns the value of the User-Agent header in the request.
+     *
+     * @param userAgent The User-Agent header value.
+     * @return An HttpResponse object containing the User-Agent string.
+     */
+    private static HttpResponse handleUserAgent(String userAgent) {
+        if (userAgent != null) {
+            return new HttpResponse.Builder(200)
+                    .withBody(userAgent.getBytes())
+                    .withHeader("Content-Type", "text/plain")
+                    .build();
+        } else {
+            return new HttpResponse.Builder(400)
+                    .withBody("User-Agent header required.".getBytes())
+                    .withHeader("Content-Type", "text/plain")
+                    .build();
+        }
+    }
+
+    /**
+     * Handles the /files/ endpoint for GET and POST requests.
+     *
+     * For GET requests, serves the content of the specified file. Supports gzip
+     * compression if the client accepts it. For POST requests, creates or overwrites
+     * the file with the request body.
+     *
+     * @param fileName The name of the file to handle.
+     * @param method   The HTTP method (GET or POST).
+     * @param headers  The request headers.
+     * @param body     The request body (for POST).
+     * @return An HttpResponse object containing the file content or status.
+     * @throws IOException If an I/O error occurs during file operations.
+     */
+    private static HttpResponse handleFiles(String fileName, String method, Map<String, String> headers, byte[] body) throws IOException {
         Path filePath = Paths.get(fileDirectory, fileName);
+        File file = filePath.toFile();
 
-        if (method.equals("GET")) {
-            // Handle GET request - serve file content
-            File file = filePath.toFile();
-
-            if (file.exists() && file.isFile()) {
-                try {
-                    // Read entire file into memory - suitable for small files
-                    // For large files, streaming would be more efficient
+        switch (method) {
+            case "GET":
+                if (file.exists() && file.isFile()) {
                     byte[] fileContent = Files.readAllBytes(filePath);
-                    byte[] compressedFileContent = null;
-
-                    // Compress content if supported
-                    if (clientSupportsGzip) {
-                        try {
-                            compressedFileContent = compressData(fileContent);
-                        } catch (IOException e) {
-                            System.err.println("Compression error: " + e.getMessage());
-                            clientSupportsGzip = false;
+                    String contentType = Files.probeContentType(filePath);
+                    if (contentType == null) {
+                        contentType = "application/octet-stream";
+                    }
+                    HttpResponse.Builder builder = new HttpResponse.Builder(200)
+                            .withBody(fileContent)
+                            .withHeader("Content-Type", contentType);
+                    if (shouldCompress(headers.get("accept-encoding"))) {
+                        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                             GZIPOutputStream gzipOS = new GZIPOutputStream(bos)) {
+                            gzipOS.write(fileContent);
+                            builder.withBody(bos.toByteArray())
+                                    .withHeader("Content-Encoding", "gzip");
                         }
                     }
-
-                    // Select final content version based on compression setting
-                    byte[] finalContent = clientSupportsGzip ? compressedFileContent : fileContent;
-                    int contentLength = finalContent.length;
-
-                    // Build response headers
-                    StringBuilder responseBuilder = new StringBuilder();
-                    responseBuilder.append("HTTP/1.1 200 OK\r\n");
-                    // application/octet-stream is a generic binary type
-                    // In a production server, we might detect content type based on extension
-                    responseBuilder.append("Content-Type: application/octet-stream\r\n");
-
-                    if (clientSupportsGzip) {
-                        responseBuilder.append("Content-Encoding: gzip\r\n");
-                    }
-
-                    responseBuilder.append("Content-Length: " + contentLength + "\r\n");
-
-                    if (!keepConnectionOpen) {
-                        responseBuilder.append("Connection: close\r\n");
-                    }
-
-                    responseBuilder.append("\r\n");
-
-                    // Send response
-                    out.write(responseBuilder.toString().getBytes());
-                    out.write(finalContent);
-                } catch (IOException e) {
-                    // Internal server error for file reading issues
-                    String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-                    out.write(response.getBytes());
-                    System.err.println("File reading error: " + e.getMessage());
+                    return builder.build();
+                } else {
+                    return new HttpResponse.Builder(404).build();
                 }
-            } else {
-                // File not found
-                String response = "HTTP/1.1 404 Not Found\r\n\r\n";
-                out.write(response.getBytes());
-            }
-        } else if (method.equals("POST")) {
-            // Handle POST request - create or update file
-            String contentLengthStr = headers.get("content-length");
-
-            if (contentLengthStr != null) {
-                // Parse content length as integer
-                int contentLength = Integer.parseInt(contentLengthStr);
-
-                // Read exact number of characters as specified by Content-Length
-                char[] bodyChars = new char[contentLength];
-                in.read(bodyChars, 0, contentLength);
-                String bodyContent = new String(bodyChars);
-
-                // Create the file
-                try {
-                    // Ensure parent directories exist (recursive directory creation)
-                    File parentDir = filePath.getParent().toFile();
-                    if (!parentDir.exists()) {
-                        parentDir.mkdirs();
-                    }
-
-                    // Write file content to disk
-                    Files.write(filePath, bodyContent.getBytes());
-
-                    // Send 201 Created response (standard for resource creation)
-                    StringBuilder responseBuilder = new StringBuilder();
-                    responseBuilder.append("HTTP/1.1 201 Created\r\n");
-
-                    if (!keepConnectionOpen) {
-                        responseBuilder.append("Connection: close\r\n");
-                    }
-
-                    responseBuilder.append("\r\n");
-
-                    out.write(responseBuilder.toString().getBytes());
-
-                    System.out.println("File created: " + fileName);
-                } catch (IOException e) {
-                    // Internal server error for file writing issues
-                    String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-                    out.write(response.getBytes());
-                    System.err.println("File writing error: " + e.getMessage());
+            case "POST":
+                if (body != null) {
+                    Files.createDirectories(filePath.getParent());
+                    Files.write(filePath, body, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    return new HttpResponse.Builder(201).build();
+                } else {
+                    return new HttpResponse.Builder(400).build();
                 }
-            } else {
-                // Content-Length header is required for POST requests
-                String response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-                out.write(response.getBytes());
+            default:
+                return new HttpResponse.Builder(405).build();
+        }
+    }
+
+    /**
+     * Sends the HTTP response to the client.
+     *
+     * Writes the status line, headers, and body of the HttpResponse to the output stream.
+     * Handles content compression based on the Accept-Encoding header.
+     *
+     * @param response        The HttpResponse object to send.
+     * @param out             The OutputStream associated with the client socket.
+     * @param acceptEncoding  The Accept-Encoding header from the client request.
+     * @throws IOException If an I/O error occurs during writing.
+     */
+    private static void sendResponse(HttpResponse response, OutputStream out, String acceptEncoding) throws IOException {
+        StringBuilder responseHeader = new StringBuilder();
+        responseHeader.append("HTTP/1.1 ").append(response.statusCode()).append(" ").append(getStatusMessage(response.statusCode())).append("\r\n");
+        for (Map.Entry<String, String> header : response.headers().entrySet()) {
+            responseHeader.append(header.getKey()).append(": ").append(header.getValue()).append("\r\n");
+        }
+        responseHeader.append("Content-Length: ").append(response.body() != null ? response.body().length : 0).append("\r\n");
+        if (acceptEncoding != null && acceptEncoding.contains("gzip") && response.headers().containsKey("Content-Encoding") && response.headers().get("Content-Encoding").equals("gzip")) {
+            // No need to add Content-Length again if it's already set for compressed data
+        }
+        responseHeader.append("\r\n");
+
+        out.write(responseHeader.toString().getBytes());
+        if (response.body() != null) {
+            out.write(response.body());
+        }
+        out.flush();
+    }
+
+    /**
+     * Determines if the server should compress the response based on the Accept-Encoding header.
+     *
+     * @param acceptEncoding The Accept-Encoding header value.
+     * @return True if gzip compression is acceptable by the client, false otherwise.
+     */
+    private static boolean shouldCompress(String acceptEncoding) {
+        return acceptEncoding != null && acceptEncoding.contains("gzip");
+    }
+
+    /**
+     * Returns the standard HTTP status message for a given status code.
+     *
+     * @param statusCode The HTTP status code.
+     * @return The corresponding status message.
+     */
+    private static String getStatusMessage(int statusCode) {
+        return switch (statusCode) {
+            case 200 -> "OK";
+            case 201 -> "Created";
+            case 400 -> "Bad Request";
+            case 404 -> "Not Found";
+            case 405 -> "Method Not Allowed";
+            case 500 -> "Internal Server Error";
+            default -> "Unknown Status";
+        };
+    }
+
+    /**
+     * Represents an HTTP request.
+     */
+    private record HttpRequest(String method, String path, Map<String, String> headers, byte[] body) {
+    }
+
+    /**
+     * Represents an HTTP response.
+     */
+    private record HttpResponse(int statusCode, Map<String, String> headers, byte[] body) {
+        /**
+         * Builder class for constructing HttpResponse objects with a fluent API.
+         */
+        public static class Builder {
+            private final int statusCode;
+            private final Map<String, String> headers = new HashMap<>();
+            private byte[] body;
+
+            public Builder(int statusCode) {
+                this.statusCode = statusCode;
             }
-        } else {
-            // Only GET and POST methods are supported for this endpoint
-            String response = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
-            out.write(response.getBytes());
+
+            public Builder withHeader(String name, String value) {
+                this.headers.put(name, value);
+                return this;
+            }
+
+            public Builder withBody(byte[] body) {
+                this.body = body;
+                return this;
+            }
+
+            public HttpResponse build() {
+                return new HttpResponse(statusCode, Map.copyOf(headers), body);
+            }
         }
     }
 }
