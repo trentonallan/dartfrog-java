@@ -41,7 +41,7 @@ public class Main {
                     //send HTTP response based on path
                     if (path.equals("/")) {
                         //root path -> respond with 200 OK
-                        String response = "HTTP/1.1 200 OK\r\n";
+                        String response = "HTTP/1.1 200 OK\r\n\r\n";
                         out.write(response.getBytes());
                     } else {
                         //any other path -> respond with 404 Not Found
