@@ -43,6 +43,23 @@ public class Main {
                         //root path -> respond with 200 OK
                         String response = "HTTP/1.1 200 OK\r\n\r\n";
                         out.write(response.getBytes());
+                    } else if (path.startsWith("/echo/")) {
+                        //extract string after "/echo/"
+                        String echoString = path.substring("/echo/".length());
+                        System.out.println("Echo string: " + echoString);
+
+                        //calculate content length (in bytes)
+                        int contentLength = echoString.getBytes().length;
+
+                        //form response with headers and body
+                        String response =
+                                "HTTP/1.1 200 OK\r\n" +
+                                        "Content-Type: text/plain\r\n" +
+                                        "Content-Length: " + contentLength + "\r\n" +
+                                        "\r\n" +
+                                        echoString;
+
+                        out.write(response.getBytes());
                     } else {
                         //any other path -> respond with 404 Not Found
                         String response = "HTTP/1.1 404 Not Found\r\n\r\n";
