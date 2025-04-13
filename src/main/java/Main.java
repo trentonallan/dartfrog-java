@@ -51,6 +51,7 @@ public class Main {
 
                     //close resources
                     out.flush();
+                    in.close();
                     clientSocket.close();
 
                 } catch (IOException e) {
