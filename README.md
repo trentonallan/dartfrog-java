@@ -111,7 +111,7 @@ Creates or overwrites a file with the specified name, using the request body as 
 
 ### HTTP Protocol Implementation
 
-Dartfrog implements core HTTP/1.1 features as defined in [RFC 7230](https://tools.ietf.org/html/rfc7230):
+Dartfrog implements core HTTP/1.1 features such as:
 
 - Request parsing and validation
 - Response construction
