@@ -8,11 +8,8 @@ Hyperion is a lightweight, multi-threaded HTTP/1.1 server implementation written
 - [Architecture](#-architecture)
 - [Getting Started](#-getting-started)
 - [API Endpoints](#-api-endpoints)
-- [Performance](#-performance)
 - [Implementation Details](#-implementation-details)
 - [Future Enhancements](#-future-enhancements)
-- [Contributing](#-contributing)
-- [License](#-license)
 
 ## ✨ Features
 
