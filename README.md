@@ -156,7 +156,4 @@ Future versions of Hyperion may include:
 - **Thread Pooling**: Replace thread-per-connection with NIO and worker pools
 - **TLS/HTTPS Support**: Secure communication
 - **Request Routing DSL**: Simplified API for defining routes
-- **Middleware Support**: Plugin architecture for request/response processing
-- **Static Asset Optimization**: Automatic minification and bundling
-- **Enhanced Logging**: Structured logging with different verbosity levels
 - **Admin Dashboard**: Runtime metrics and configuration
