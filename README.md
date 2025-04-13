@@ -158,4 +158,4 @@ Future versions of Dartfrog may include:
 
 
 
-Thanks for reading! Feel free to reach out at allan.tr@northeastern.edu.
+Thank you for reading! Feel free to reach out at allan.tr@northeastern.edu.
