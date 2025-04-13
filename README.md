@@ -13,9 +13,7 @@ Dartfrog is a lightweight, multi-threaded HTTP/1.1 server implementation written
 
 ## ⭐️ Features
 
-
-
-Hyperion implements core HTTP/1.1 functionality:
+Dartfrog implements core HTTP/1.1 functionality:
 
 - **Persistent Connections**: Keep TCP connections alive for multiple requests, improving performance
 - **Concurrent Request Handling**: Process multiple client connections simultaneously
@@ -27,7 +25,7 @@ Hyperion implements core HTTP/1.1 functionality:
 
 ## 🏗 Architecture
 
-Hyperion uses a thread-per-connection model with the following components:
+Dartfrog uses a thread-per-connection model with the following components:
 
 1. **Main Server Thread**: Accepts new TCP connections and delegates them to handler threads
 2. **Connection Handlers**: Each client connection gets a dedicated thread that processes multiple requests
@@ -50,33 +48,33 @@ The server maintains connection state for persistent connections while isolating
 
 ```bash
 # Run the server on the default port (4221)
-java -jar hyperion.jar
+java -jar dartfrog.jar
 
 # Run with a specific file directory
-java -jar hyperion.jar --directory /path/to/files
+java -jar dartfrog.jar --directory /path/to/files
 
 # Run with custom port (using JVM arguments)
-java -Dport=8080 -jar hyperion.jar
+java -Dport=8080 -jar dartfrog.jar
 ```
 
 #### Building from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/hyperion.git
-cd hyperion
+git clone https://github.com/yourusername/dartfrog.git
+cd dartfrog
 
 # Build the JAR
-javac -d build src/main/java/com/hyperion/*.java
-jar cvfe hyperion.jar com.hyperion.Main -C build .
+javac -d build src/main/java/com/dartfrog/*.java
+jar cvfe dartfrog.jar com.dartfrog.Main -C build .
 
 # Run the server
-java -jar hyperion.jar
+java -jar dartfrog.jar
 ```
 
 ## 🔌 API Endpoints
 
-Hyperion supports the following endpoints:
+Dartfrog supports the following endpoints:
 
 ### Root Endpoint
 ```
@@ -113,7 +111,7 @@ Creates or overwrites a file with the specified name, using the request body as 
 
 ### HTTP Protocol Implementation
 
-Hyperion implements core HTTP/1.1 features as defined in [RFC 7230](https://tools.ietf.org/html/rfc7230):
+Dartfrog implements core HTTP/1.1 features as defined in [RFC 7230](https://tools.ietf.org/html/rfc7230):
 
 - Request parsing and validation
 - Response construction
@@ -151,7 +149,7 @@ File operations are implemented using Java NIO for better performance:
 
 ## 🔮 Future Enhancements
 
-Future versions of Hyperion may include:
+Future versions of Dartfrog may include:
 
 - **HTTP/2 Support**: Multiplexing, server push, header compression
 - **WebSocket Protocol**: Enable real-time bidirectional communication
