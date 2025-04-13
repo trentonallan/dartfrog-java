@@ -151,11 +151,9 @@ File operations are implemented using Java NIO for better performance:
 
 Future versions of Dartfrog may include:
 
-- **HTTP/2 Support**: Multiplexing, server push, header compression
+- **HTTP/2 Support**: Multiplexing, server push, and header compression
 - **WebSocket Protocol**: Enable real-time bidirectional communication
 - **Thread Pooling**: Replace thread-per-connection with NIO and worker pools
-- **TLS/HTTPS Support**: Secure communication
-- **Request Routing DSL**: Simplified API for defining routes
 - **Admin Dashboard**: Runtime metrics and configuration
 
 
