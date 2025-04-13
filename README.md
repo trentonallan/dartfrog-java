@@ -40,7 +40,7 @@ The server maintains connection state for persistent connections while isolating
 ### Prerequisites
 
 - Java 11 or higher
-- Maven (optional, for building from source)
+- Maven (if building from source)
 
 ### Installation
 
@@ -61,12 +61,12 @@ java -Dport=8080 -jar dartfrog.jar
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dartfrog.git
-cd dartfrog
+git clone https://github.com/trentonallan/dartfrog-java.git
+cd dartfrog-java
 
 # Build the JAR
-javac -d build src/main/java/com/dartfrog/*.java
-jar cvfe dartfrog.jar com.dartfrog.Main -C build .
+javac -d build Main.java
+jar cvfe dartfrog.jar Main -C build .
 
 # Run the server
 java -jar dartfrog.jar
