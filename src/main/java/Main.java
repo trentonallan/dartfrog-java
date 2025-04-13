@@ -82,11 +82,13 @@ public class Main {
             // Get OutputStream to send data back to client
             OutputStream out = clientSocket.getOutputStream();
 
-            // Extract path from request line
-            String path = extractPath(requestLine);
-            System.out.println("Path: " + path);
+            // Extract method and path from request line
+            String[] requestParts = requestLine.split(" ");
+            String method = requestParts[0]; // GET, POST, etc.
+            String path = requestParts.length > 1 ? requestParts[1] : "/";
+            System.out.println("Method: " + method + ", Path: " + path);
 
-            // Send HTTP response based on path
+            // Handle different paths
             if (path.equals("/")) {
                 // Root path -> respond with 200 OK
                 String response = "HTTP/1.1 200 OK\r\n\r\n";
@@ -132,29 +134,75 @@ public class Main {
                     out.write(response.getBytes());
                 }
             } else if (path.startsWith("/files/")) {
-                // Handle file request
+                // Handle file operations (both GET and POST)
                 String fileName = path.substring("/files/".length());
                 Path filePath = Paths.get(fileDirectory, fileName);
-                File file = filePath.toFile();
 
-                if (file.exists() && file.isFile()) {
-                    try {
-                        byte[] fileContent = Files.readAllBytes(filePath);
-                        String response =
-                                "HTTP/1.1 200 OK\r\n" +
-                                        "Content-Type: application/octet-stream\r\n" +
-                                        "Content-Length: " + fileContent.length + "\r\n" +
-                                        "\r\n";
+                if (method.equals("GET")) {
+                    // Handle GET request for files
+                    File file = filePath.toFile();
 
+                    if (file.exists() && file.isFile()) {
+                        try {
+                            byte[] fileContent = Files.readAllBytes(filePath);
+                            String response =
+                                    "HTTP/1.1 200 OK\r\n" +
+                                            "Content-Type: application/octet-stream\r\n" +
+                                            "Content-Length: " + fileContent.length + "\r\n" +
+                                            "\r\n";
+
+                            out.write(response.getBytes());
+                            out.write(fileContent);
+                        } catch (IOException e) {
+                            String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+                            out.write(response.getBytes());
+                            System.err.println("File reading error: " + e.getMessage());
+                        }
+                    } else {
+                        String response = "HTTP/1.1 404 Not Found\r\n\r\n";
                         out.write(response.getBytes());
-                        out.write(fileContent);
-                    } catch (IOException e) {
-                        String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+                    }
+                } else if (method.equals("POST")) {
+                    // Handle POST request to create a new file
+                    String contentLengthStr = headers.get("content-length");
+
+                    if (contentLengthStr != null) {
+                        int contentLength = Integer.parseInt(contentLengthStr);
+
+                        // Read the request body
+                        char[] bodyChars = new char[contentLength];
+                        in.read(bodyChars, 0, contentLength);
+                        String bodyContent = new String(bodyChars);
+
+                        // Create the file
+                        try {
+                            // Create parent directories if they don't exist
+                            File parentDir = filePath.getParent().toFile();
+                            if (!parentDir.exists()) {
+                                parentDir.mkdirs();
+                            }
+
+                            // Write the file content
+                            Files.write(filePath, bodyContent.getBytes());
+
+                            // Send 201 Created response
+                            String response = "HTTP/1.1 201 Created\r\n\r\n";
+                            out.write(response.getBytes());
+
+                            System.out.println("File created: " + fileName);
+                        } catch (IOException e) {
+                            String response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+                            out.write(response.getBytes());
+                            System.err.println("File writing error: " + e.getMessage());
+                        }
+                    } else {
+                        // Content-Length header missing
+                        String response = "HTTP/1.1 400 Bad Request\r\n\r\n";
                         out.write(response.getBytes());
-                        System.err.println("File reading error: " + e.getMessage());
                     }
                 } else {
-                    String response = "HTTP/1.1 404 Not Found\r\n\r\n";
+                    // Method not supported
+                    String response = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
                     out.write(response.getBytes());
                 }
             } else {
@@ -176,25 +224,5 @@ public class Main {
                 System.err.println("Error closing client socket: " + ex.getMessage());
             }
         }
-    }
-
-    // Extract path method
-    private static String extractPath(String requestLine) {
-        if (requestLine == null) {
-            // RequestLine is null -> default to root path
-            return "/";
-        }
-
-        // Split requestLine by spaces
-        String[] parts = requestLine.split(" ");
-
-        // Check format
-        if (parts.length < 2) {
-            // Invalid format -> default to root path
-            return "/";
-        }
-
-        // Return path
-        return parts[1];
     }
 }
