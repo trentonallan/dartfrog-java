@@ -10,9 +10,24 @@ import java.util.Map;
 public class Main {
     //port number server listens to
     private static final int PORT = 4221;
+    private static String fileDirectory;
 
     //main method
     public static void main(String[] args) {
+
+        //parse command line arguments
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--directory") && i + 1 < args.length) {
+                fileDirectory = args[i + 1];
+                System.out.println("File directory set to: " + fileDirectory);
+                break;
+            }
+        }
+
+        if (fileDirectory == null) {
+            System.err.println("Error: --directory argument not provided.")
+        }
+
         try {
             //create ServerSocket to listen on specified port
             ServerSocket serverSocket = new ServerSocket(PORT);
