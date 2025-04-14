@@ -1,4 +1,4 @@
-# Dartfrog: A High-Performance HTTP/1.1 Server in Java
+# 🐸 Dartfrog: A High-Performance HTTP/1.1 Server in Java
 
 Dartfrog is a high-performance and scalable HTTP/1.1 server implementation written in pure Java with no external dependencies. It's designed for performance and clarity, featuring asynchronous request handling via a thread pool.
 
