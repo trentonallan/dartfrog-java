@@ -146,7 +146,7 @@ File operations are implemented using Java NIO for efficiency:
 
 ## 🔮 Future Updates
 
-This HTTP/1.1 server implementation is an educational project demonstrating fundamental networking concepts and HTTP request/response handling. It currently has several limitations compared to production-ready web servers. Future versions of Dartfrog may explore:
+This HTTP/1.1 server implementation is an educational project for me to familiarize myself with fundamental networking concepts and HTTP request/response handling. It currently has several limitations compared to actual production-ready web servers. Future versions of Dartfrog may explore:
 
 - **HTTP/2 Support**: Implementing multiplexing, server push, and header compression for improved performance.
 - **WebSocket Protocol**: Enabling real-time bidirectional communication capabilities.
@@ -154,5 +154,4 @@ This HTTP/1.1 server implementation is an educational project demonstrating fund
 - **Admin Dashboard**: Providing runtime metrics and configuration options.
 
 
-
-Thanks for reading! Feel free to reach out at allan.tr@northeastern.edu.
+Thank you for checking out Dartfrog! Feel free to reach out at allan.tr@northeastern.edu.
