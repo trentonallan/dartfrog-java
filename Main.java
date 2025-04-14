@@ -53,7 +53,7 @@ public class Main {
         int port = DEFAULT_PORT;
         fileDirectory = DEFAULT_FILE_DIRECTORY;
 
-        // Parse command-line arguments with enhanced clarity
+        // Parse command-line arguments
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--directory":
