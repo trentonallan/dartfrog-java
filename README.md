@@ -126,7 +126,6 @@ The server utilizes a thread pool for efficient handling of concurrent connectio
 
 - A fixed-size thread pool (`THREAD_POOL_SIZE` equal to the number of available processors) manages worker threads.
 - Incoming client connections are submitted to the thread pool for asynchronous processing.
-- This model improves performance by reusing threads and reducing the overhead of creating new threads for each connection.
 
 ### Compression
 
