@@ -1,157 +1,126 @@
-# Dartfrog: A High-Performance HTTP/1.1 Server in Java
+# Dartfrog: HTTP/1.1 Server in Java
 
-Dartfrog is a high-performance and scalable HTTP/1.1 server implementation written in pure Java with no external dependencies. It's designed for performance and clarity, featuring asynchronous request handling via a thread pool.
+A multithreaded HTTP/1.1 server built from scratch in Java with zero external dependencies.
 
-## 📚 Table of Contents
+## Table of Contents
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Architecture](#architecture)
+- [API Endpoints](#api-endpoints)
+- [Implementation Notes](#implementation-notes)
+- [Limitations](#limitations)
 
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Getting Started](#-getting-started)
-- [API Endpoints](#-api-endpoints)
-- [Implementation Details](#-implementation-details)
-- [Future Updates](#-future-updates)
+## Features
 
-## ⭐️ Features
+- **Persistent connections** - Keeps TCP sockets alive across multiple requests
+- **Request pipelining** - Handles multiple requests on a single connection
+- **Gzip compression** - Automatic response compression with content negotiation
+- **Thread pooling** - Fixed-size pool matches available CPU cores
+- **File serving** - GET and POST operations with automatic Content-Type detection
+- **RFC compliance** - Proper status codes, headers, and response formatting
 
-Dartfrog implements core HTTP/1.1 functionality:
+Built entirely with Java standard library - no frameworks, no dependencies.
 
-- **Persistent Connections**: Keep TCP connections alive for multiple requests, improving performance.
-- **Asynchronous Request Handling**: Utilizes a thread pool for efficient handling of concurrent client connections.
-- **Content Compression (gzip)**: Automatically compresses responses when supported by clients, with content negotiation via `Accept-Encoding`.
-- **Versatile File Management**: Provides efficient file serving capabilities (GET) with automatic Content-Type detection and allows for file creation/modification (POST) via request bodies.
-- **Content Negotiation**: Honors client preferences for compression via the `Accept-Encoding` header.
-- **Standards Compliant**: Adheres to HTTP/1.1 standards for status codes, headers, and response formats.
-- **Robust Error Handling**: Includes comprehensive error handling and logging.
-- **Clear, Modular Design**: Promotes maintainability and extensibility through well-organized code.
-
-## 🏗 Architecture
-
-Dartfrog uses a multi-threaded architecture with the following key components:
-
-1. **Main Server Thread**: Accepts incoming TCP connections and delegates them to worker threads from the thread pool.
-2. **Worker Threads (Thread Pool)**: A pool of threads that concurrently handle multiple client requests, improving responsiveness.
-3. **Request Parser**: Parses the HTTP request line and headers into a structured `HttpRequest` object.
-4. **Route Handler**: Maps incoming request paths to specific handler logic.
-5. **Response Formatter**: Constructs `HttpResponse` objects with appropriate headers and body, including handling content compression.
-
-The server maintains connection persistence where requested and ensures thread safety through the design of request handling.
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
-
-- Java 11 or higher
-- Maven (if building from source)
-
-### Installation
-
-#### Running the pre-built JAR:
-
 ```bash
-# Run the server on the default port (4221)
+Java 11+
+```
+
+### Running
+```bash
+# Default port (4221)
 java -jar dartfrog.jar
 
-# Run with a specific file directory
+# Custom file directory
 java -jar dartfrog.jar --directory /path/to/files
 
-# Run with custom port (using JVM arguments)
+# Custom port
 java -Dport=8080 -jar dartfrog.jar
 ```
 
-#### Building from source:
-
+### Building from source
 ```bash
-# Clone the repository
 git clone https://github.com/trentonallan/dartfrog-java.git
 cd dartfrog-java
 
-# Build the JAR
 javac -d build Main.java
 jar cvfe dartfrog.jar Main -C build .
-
-# Run the server
-java -jar dartfrog.jar
 ```
 
-## 🔌 API Endpoints
+## Architecture
 
-Dartfrog supports the following endpoints:
+### Core Components
 
-### Root Endpoint
+**Main server thread** accepts incoming TCP connections and submits them to the thread pool.
+
+**Worker threads** handle client requests concurrently. Pool size matches `Runtime.getRuntime().availableProcessors()` for optimal CPU utilization.
+
+**Request parser** converts raw HTTP bytes into structured `HttpRequest` objects containing method, path, headers, and body.
+
+**Route handler** maps request paths to handler logic (root, echo, user-agent, files).
+
+**Response formatter** builds `HttpResponse` objects with proper status codes, headers, and optional gzip compression.
+
+### Connection Management
+
+Connections persist by default (`Connection: keep-alive`) unless the client requests closure or an error occurs. Each worker thread processes requests sequentially on its assigned connection until termination.
+
+## API Endpoints
+
+### `GET /`
+Returns 200 OK with empty body.
+
+### `GET /echo/{string}`
+Returns the path parameter as plain text. Supports gzip compression via `Accept-Encoding: gzip`.
+
+**Example:**
+```bash
+curl http://localhost:4221/echo/hello
+# Returns: hello
 ```
-GET /
-```
-Returns a 200 OK response with an empty body.
 
-### Echo Endpoint
-```
-GET /echo/{string}
-```
-Returns the {string} value as plain text.
+### `GET /user-agent`
+Returns the `User-Agent` header value.
 
-Supports gzip compression when requested via Accept-Encoding header.
+### `GET /files/{filename}`
+Serves file content from the configured directory with automatic Content-Type detection.
 
-### User-Agent Endpoint
-```
-GET /user-agent
-```
-Returns the User-Agent header value as plain text.
+### `POST /files/{filename}`
+Creates or overwrites a file using the request body as content. Creates parent directories if needed.
 
-### Files Endpoint
-```
-GET /files/{filename}
-```
-Returns the contents of the specified file from the configured directory.
+## Implementation Notes
 
-```
-POST /files/{filename}
-```
-Creates or overwrites a file with the specified name, using the request body as content.
-
-## 🔧 Implementation Details
-
-### HTTP Protocol Implementation
-
-Dartfrog implements core HTTP/1.1 features such as:
-
-- Robust request parsing of the request line and headers.
-- Structured `HttpRequest` and `HttpResponse` objects for managing request and response data.
-- Proper construction of response status lines and headers.
-- Handling of `Content-Length` for request and response bodies.
-- Support for persistent connections (`Connection: keep-alive` and `Connection: close`).
-
-### Thread Management
-
-The server utilizes a thread pool for efficient handling of concurrent connections:
-
-- A fixed-size thread pool (`THREAD_POOL_SIZE` equal to the number of available processors) manages worker threads.
-- Incoming client connections are submitted to the thread pool for asynchronous processing.
+### HTTP/1.1 Protocol
+- Request line and header parsing
+- `Content-Length` handling for bodies
+- Persistent connection support
+- Proper status line formatting
 
 ### Compression
+Uses `GZIPOutputStream` to compress responses when clients send `Accept-Encoding: gzip`. The `Content-Encoding: gzip` header indicates compressed responses.
 
-Dartfrog implements gzip compression with content negotiation:
+### File Operations
+Built on Java NIO:
+- `Files.readAllBytes()` for reading
+- `Files.probeContentType()` for MIME type detection
+- `Files.write()` with `CREATE` and `TRUNCATE_EXISTING` for writing
 
-- Uses Java's `GZIPOutputStream` for compressing response bodies.
-- Compression is only applied if the client explicitly indicates support for `gzip` in the `Accept-Encoding` request header.
-- The `Content-Encoding: gzip` header is included in compressed responses.
+### Thread Safety
+Each connection is handled by a single thread sequentially. No shared mutable state between threads - thread safety comes from isolation rather than synchronization.
 
-### File Handling
+## Limitations
 
-File operations are implemented using Java NIO for efficiency:
+This is an educational project for learning HTTP protocol implementation and socket programming. Not production-ready.
 
-- `Files.readAllBytes` is used for reading file content for GET requests.
-- `Files.probeContentType` attempts to automatically determine the correct `Content-Type` for served files.
-- `Files.write` with `StandardOpenOption.CREATE` and `StandardOpenOption.TRUNCATE_EXISTING` is used for creating or overwriting files in POST requests.
-- Parent directories are automatically created if they don't exist during POST requests.
+**Known issues:**
+- No request body size validation (potential DoS vector)
+- Basic error handling (doesn't gracefully handle malformed requests)
+- Limited logging and observability
 
-## 🔮 Future Updates
+## Author
 
-This HTTP/1.1 server implementation is an educational project for me to familiarize myself with fundamental networking concepts and HTTP request/response handling. It currently has several limitations compared to actual production-ready web servers. Future versions of Dartfrog may explore:
-
-- **HTTP/2 Support**: Implementing multiplexing, server push, and header compression for improved performance.
-- **WebSocket Protocol**: Enabling real-time bidirectional communication capabilities.
-- **Enhanced Thread Management**: Further optimization of thread pool management and potential exploration of non-blocking I/O (NIO) for 
-- **Admin Dashboard**: Providing runtime metrics and configuration options.
-
-
-Thank you for checking out Dartfrog! Feel free to reach out at allan.tr@northeastern.edu.
+**Trenton Allan**  
+Northeastern University  
+[allan.tr@northeastern.edu](mailto:allan.tr@northeastern.edu) | [GitHub](https://github.com/trentonallan)
