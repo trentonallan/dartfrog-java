@@ -239,4 +239,5 @@ This is an educational project for learning HTTP protocol implementation and soc
 
 **Trenton Allan**  
 Northeastern University  
-[allan.tr@northeastern.edu](mailto:allan.tr@northeastern.edu) | [GitHub](https://github.com/trentonallan)
+B.S. Computer Science (AI concentration)   
+[allan.tr@northeastern.edu](mailto:allan.tr@northeastern.edu) | [LinkedIn](https://linkedin.com/in/trentonallan)
